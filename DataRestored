@@ -1,0 +1,77 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+contract EnhancedStorageETH {
+    address public owner;
+    mapping(address => bool) public admins;
+    bytes32 public storedData;
+    uint256 public creationTimestamp;
+    bool public isLocked;
+
+    event DataStored(address indexed user, bytes32 data);
+    event DataDeleted(address indexed deleter);
+    event DataRestored(address indexed restorer);
+    event AdminAdded(address indexed admin);
+    event AdminRemoved(address indexed admin);
+
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only the owner can call this function");
+        _;
+    }
+
+    modifier onlyAdmin() {
+        require(admins[msg.sender] || msg.sender == owner, "Only admins can call this function");
+        _;
+    }
+
+    modifier notLocked() {
+        require(!isLocked, "Contract is locked and data cannot be modified");
+        _;
+    }
+
+    constructor() {
+        owner = msg.sender;
+        creationTimestamp = block.timestamp;
+        isLocked = false;
+        admins[msg.sender] = true;  // Owner is an admin by default
+    }
+
+    function set(bytes32 newData) external onlyAdmin notLocked {
+        storedData = newData;
+        emit DataStored(msg.sender, newData);
+    }
+
+    function get() external view returns (bytes32) {
+        return storedData;
+    }
+
+    function deleteData() external onlyAdmin notLocked {
+        storedData = 0;  // Reset storedData to zero
+        emit DataDeleted(msg.sender);
+    }
+
+    function restoreData(bytes32 newData) external onlyAdmin notLocked {
+        require(storedData == 0, "Data is not deleted");
+        storedData = newData;
+        emit DataRestored(msg.sender);
+    }
+
+    function lockContract() external onlyOwner {
+        isLocked = true;
+    }
+
+    function unlockContract() external onlyOwner {
+        isLocked = false;
+    }
+
+    function addAdmin(address newAdmin) external onlyOwner {
+        admins[newAdmin] = true;
+        emit AdminAdded(newAdmin);
+    }
+
+    function removeAdmin(address adminToRemove) external onlyOwner {
+        require(adminToRemove != owner, "Cannot remove the owner as an admin");
+        admins[adminToRemove] = false;
+        emit AdminRemoved(adminToRemove);
+    }
+}
